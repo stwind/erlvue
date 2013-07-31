@@ -1,0 +1,8 @@
+%% -*- mode: erlang -*-
+%% ex: ft=erlang ts=2 sw=2 et
+
+[
+  {'_', [
+      {"/ping/[...]", erlvue_cb_ping, []}
+    ]}
+].

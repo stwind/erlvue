@@ -1,0 +1,17 @@
+%% -*- mode: erlang -*-
+%% ex: ft=erlang ts=2 sw=2 et
+{application, erlvue,
+  [
+    {description, ""},
+    {vsn, "0.0.1"},
+    {registered, []},
+    {applications, [
+        kernel,
+        stdlib,
+        lager,
+        cowboy,
+        wamp
+      ]},
+    {mod, { erlvue_app, []}},
+    {env, []}
+  ]}.
