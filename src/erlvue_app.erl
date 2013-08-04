@@ -5,6 +5,8 @@
 %% Application callbacks
 -export([start/2, stop/1]).
 
+-include("logger.hrl").
+
 %% ===================================================================
 %% Application callbacks
 %% ===================================================================
@@ -41,10 +43,8 @@ get_env(Key, Default) ->
     end.
 
 proto_opts() ->
-    DispatchFile = get_env(dispatch_file, "priv/dispatch.script"),
-    {ok, Dispatch} = file:script(DispatchFile, bs()),
     [
-        {env, [{dispatch, cowboy_router:compile(Dispatch)}]}, 
+        {env, [{dispatch, dispatch()}]}, 
         {timeout, get_env(timeout, 300000)}
     ].
 
@@ -72,6 +72,16 @@ trans_opts() ->
         false ->
             Opts
     end.
+
+dispatch() ->
+    DispatchFile = get_env(dispatch_file, "priv/dispatch.script"),
+    {ok, Dispatch} = file:script(DispatchFile, bs()),
+    SockjsOpts = [{logger, fun(_,R,_) -> R end}],
+    Wamp = wamp:init_sockjs_state(<<"/wamp">>, erlvue_wamp, [], SockjsOpts),
+    WampRoute = {<<"/wamp/[...]">>, sockjs_cowboy_handler, Wamp},
+    Routes = erlvue_util:kf('_', Dispatch),
+    Dispatch1 = lists:keyreplace('_', 1, Dispatch, {'_', [WampRoute | Routes]}),
+    cowboy_router:compile(Dispatch1).
 
 bs() ->
     erl_eval:new_bindings().
