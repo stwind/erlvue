@@ -14,6 +14,7 @@
 start(_StartType, _StartArgs) ->
     {ok, Sup} = erlvue_sup:start_link(),
     setup_cowboy(),
+    erlvue_pubsub:init(),
     {ok, Sup}.
 
 stop(_State) ->

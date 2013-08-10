@@ -11,17 +11,13 @@
 -record(state, { }).
 
 -include("logger.hrl").
-
--define(TOPICS, topics).
--define(CONNS, conns).
+-include("common.hrl").
 
 %% ===================================================================
 %% Callbacks
 %% ===================================================================
 
 init([]) ->
-    ets:new(?TOPICS, [named_table, public]),
-    ets:new(?CONNS, [named_table, public]),
     #state{}.
 
 welcome(_, State) ->
@@ -36,62 +32,38 @@ call(_, {<<"echo">>, [Msg]}, State) ->
 call(_, {<<"/">>, [<<"read">>]}, State) ->
     {{ok, ej:set({"name"},{[]},<<"shuang">>)}, State};
 
+call(_, {<<"/nodes">>, [<<"read">>]}, State) ->
+    {{ok, nodes_resp()}, State};
+
 call(_, _, State) ->
     {{ok, <<>>}, State}.
 
-subscribe(Client, Topic, State) ->
-    {ok, add_sub(Topic, Client, State)}.
+subscribe(Client, <<"/procs/", Node/binary>> = Topic, State) ->
+    maybe_start_worker(?to_a(?urldec(Node))),
+    ok = erlvue_pubsub:subscribe(Topic, Client),
+    {ok, State};
+
+subscribe(_, _, State) ->
+    {ok, State}.
 
 unsubscribe(Client, Topic, State) ->
-    {ok, remove_sub(Topic, Client, State)}.
+    ok = erlvue_pubsub:unsubscribe(Topic, Client),
+    {ok, State}.
 
-publish(Client, {Topic, Event, Exclude, Eligible}, State) ->
-    Subs = get_subs(Topic),
-    Subs1 = maybe_exclude_me(Exclude, Client, Subs),
-    Subs2 = maybe_eligible(Eligible, Subs1),
-    sent_event_to(Topic, Event, Subs2),
+publish({Id, _}, {Topic, Event, true, Eligible}, State) ->
+    erlvue_pubsub:publish(Topic, Event, [Id], Eligible),
+    {ok, State};
+
+publish(_, {Topic, Event, false, Eligible}, State) ->
+    erlvue_pubsub:publish(Topic, Event, [], Eligible),
     {ok, State}.
 
 %% ===================================================================
 %% Private
 %% ===================================================================
 
-add_sub(Topic, {Sid, Conn}, State) ->
-    Subs = get_subs(Topic),
-    ets:insert(?TOPICS, {Topic, lists:usort([Conn | Subs])}),
-    ets:insert(?CONNS, {Sid, Conn}),
-    State.
+nodes_resp() ->
+    [ej:set({"name"}, {[]}, N) || N <- [node() | nodes()]].
 
-remove_sub(Topic, {Sid, Conn}, State) ->
-    Subs = get_subs(Topic),
-    ets:insert(?TOPICS, {Topic, lists:delete(Conn, Subs)}),
-    ets:delete(?CONNS, Sid),
-    State.
-
-get_subs(Topic) ->
-    case ets:lookup(?TOPICS, Topic) of
-        [{Topic, Subs}] ->
-            Subs;
-        [] ->
-            ets:insert(?TOPICS, {Topic, []}),
-            []
-    end.
-
-maybe_exclude_me(true, {_, Conn}, Subs) ->
-    lists:delete(Conn, Subs);
-maybe_exclude_me(false, _, Subs) ->
-    Subs.
-
-maybe_eligible([], Subs) ->
-    Subs;
-maybe_eligible([Sid | Rest], Subs) ->
-    case ets:lookup(?CONNS, Sid) of
-        [{Sid, Conn}] ->
-            maybe_eligible(Rest, lists:delete(Conn, Subs));
-        [] ->
-            maybe_eligible(Rest, Subs)
-    end.
-
-sent_event_to(Topic, Event, Subs) ->
-    [wamp:notify(Topic, Event, C) || C <- Subs].
-
+maybe_start_worker(Node) ->
+    _ = erlvue_procs:start_it(Node).

@@ -10,10 +10,24 @@
 -export([kf/2]).
 -export([kf/3]).
 
+-export([md5_hex/1]).
+
+-export([to_obj/1]).
+
+-export([urldecode/1]).
+-export([urlencode/1]).
+
+-define(IS_PRIMITIVE(V), 
+    is_binary(V);
+    is_float(V);
+    is_integer(V);
+    is_boolean(V);
+    V == null).
+
 -type value() :: string() | binary() | integer() | atom().
 
 %% ===================================================================
-%% Api functions
+%% Public
 %% ===================================================================
 
 %% @doc Convert values to integer
@@ -59,7 +73,7 @@ to_a(V) ->
 %% @doc Format value to string
 -spec to_str(term()) -> string().
 to_str(Term) ->
-    y_str:oneline(io_lib:format("~p",[Term])).
+    oneline(io_lib:format("~p",[Term])).
 
 %% @doc Convert values to boolean
 -spec to_bool(boolean() | integer()) -> boolean().
@@ -80,3 +94,52 @@ kf(Key, List, Default) ->
         {Key, Value} -> Value
     end.
 
+md5_hex(S) ->
+    to_b(lists:flatten(list_to_hex(to_l(erlang:md5(S))))).
+
+list_to_hex(Xs) ->
+    [int_to_hex(X) || X <- Xs].
+
+int_to_hex(N) when N < 256 ->
+    [hex(N div 16), hex(N rem 16)].
+
+hex(N) when N < 10 ->
+    $0 + N;
+hex(N) when N >= 10, N < 16 ->
+    $a + (N-10).
+
+to_obj(Object) ->
+    objectify(Object, [], list).
+
+%% ===================================================================
+%% Private
+%% ===================================================================
+
+objectify([], Acc, obj) ->
+    {lists:reverse(Acc)};
+objectify([], Acc, list)->
+    lists:reverse(Acc);
+objectify([{Key, Val} | Rest], Acc, _Type) when is_list(Val) ->
+    objectify(Rest, [{Key, objectify(Val, [], list)} | Acc], obj);
+objectify([{Key, Val} | Rest], Acc, _Type) when ?IS_PRIMITIVE(Val) ->
+    objectify(Rest, [{Key, Val} | Acc], obj);
+objectify([{Key, undefined} | Rest], Acc, _Type) ->
+    objectify(Rest, [{Key, null} | Acc], obj);
+objectify([{Key, Val} | Rest], Acc, _Type) ->
+    objectify(Rest, [{Key, to_str(Val)} | Acc], obj);
+objectify([Val| Rest], Acc, Type) when is_list(Val) ->
+    objectify(Rest, [objectify(Val, [], list) | Acc], Type);
+objectify([KV | Rest], Acc, Type) ->
+    objectify(Rest, [KV | Acc], Type).
+
+oneline(Str) ->
+    replace(Str, <<"\n\s*">>, <<>>).
+
+replace(Str, Old, New) ->
+    re:replace(Str, Old, New, [global,{return,binary}]).
+
+urlencode(Val) ->
+    cowboy_http:urlencode(Val).
+
+urldecode(Val) ->
+    cowboy_http:urldecode(Val).

@@ -1,9 +1,10 @@
--module(erlvue_sup).
+-module(erlvue_worker_sup).
 
 -behaviour(supervisor).
 
 %% API
 -export([start_link/0]).
+-export([start_child/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -18,13 +19,12 @@
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
+start_child(Spec) ->
+    supervisor:start_child(?MODULE, Spec).
+
 %% ===================================================================
 %% Supervisor callbacks
 %% ===================================================================
 
 init([]) ->
-    Children = [worker_sup()],
-    {ok, { {one_for_one, 5, 10}, Children} }.
-
-worker_sup() ->
-    ?CHILD(erlvue_worker_sup, supervisor).
+    {ok, { {one_for_one, 5, 10}, []} }.
