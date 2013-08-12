@@ -7,6 +7,7 @@
 -export([subscribe/3]).
 -export([unsubscribe/3]).
 -export([publish/3]).
+-export([terminate/2]).
 
 -record(state, { }).
 
@@ -29,9 +30,6 @@ prefix(_, _, State) ->
 call(_, {<<"echo">>, [Msg]}, State) ->
     {{ok, Msg}, State};
 
-call(_, {<<"/">>, [<<"read">>]}, State) ->
-    {{ok, ej:set({"name"},{[]},<<"shuang">>)}, State};
-
 call(_, {<<"/nodes">>, [<<"read">>]}, State) ->
     {{ok, nodes_resp()}, State};
 
@@ -47,7 +45,7 @@ subscribe(_, _, State) ->
     {ok, State}.
 
 unsubscribe(Client, Topic, State) ->
-    ok = erlvue_pubsub:unsubscribe(Topic, Client),
+    ok = erlvue_pubsub:unsubscribe(Client, Topic),
     {ok, State}.
 
 publish({Id, _}, {Topic, Event, true, Eligible}, State) ->
@@ -56,6 +54,10 @@ publish({Id, _}, {Topic, Event, true, Eligible}, State) ->
 
 publish(_, {Topic, Event, false, Eligible}, State) ->
     erlvue_pubsub:publish(Topic, Event, [], Eligible),
+    {ok, State}.
+
+terminate(Client, State) ->
+    ok = erlvue_pubsub:unsubscribe(Client),
     {ok, State}.
 
 %% ===================================================================
