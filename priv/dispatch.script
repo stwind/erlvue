@@ -3,6 +3,21 @@
 
 [
   {'_', [
-      {"/ping/[...]", erlvue_cb_ping, []}
+      {"/ping/[...]", erlvue_cb_ping, []},
+      {"/", cowboy_static, [
+          {directory, {priv_dir, erlvue, [<<"www">>]}},
+          {file, <<"index.html">>},
+          {mimetypes, [{<<".html">>, [<<"text/html">>]}]}
+        ]},
+      {"/[...]", cowboy_static, 
+        [
+          {directory, {priv_dir, erlvue, [<<"www">>]}},
+          {mimetypes, [
+              {<<".css">>, [<<"text/css">>]},
+              {<<".js">>, [<<"application/javascript">>]},
+              {<<".html">>, [<<"text/html">>]},
+              {<<".txt">>, [<<"text/plain">>]}
+            ]}
+        ]}
     ]}
 ].
