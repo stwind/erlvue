@@ -68,4 +68,4 @@ nodes_resp() ->
     [ej:set({"name"}, {[]}, N) || N <- [node() | nodes()]].
 
 maybe_start_worker(Node) ->
-    _ = erlvue_procs:start_it(Node).
+    erlvue_procs:start_it(Node).

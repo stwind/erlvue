@@ -17,6 +17,8 @@
 -export([urldecode/1]).
 -export([urlencode/1]).
 
+-export([take/2]).
+
 -define(IS_PRIMITIVE(V), 
     is_binary(V);
     is_float(V);
@@ -110,6 +112,11 @@ hex(N) when N >= 10, N < 16 ->
 
 to_obj(Object) ->
     objectify(Object, [], list).
+
+-spec take(integer(), [_]) -> [_].
+take(N, _) when N =< 0     -> [];
+take(_, [])                -> [];
+take(N, [X|Xs])            -> [X|take(N-1, Xs)].
 
 %% ===================================================================
 %% Private

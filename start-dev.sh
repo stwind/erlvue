@@ -8,6 +8,7 @@ LIBS_DIR="deps"
 
 exec $ERL -pa ebin \
     -boot start_sasl \
+    +A 256 \
     -name $NODE_NAME \
     -setcookie $COOKIE \
     -config $CONFIG \

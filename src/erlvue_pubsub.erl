@@ -8,6 +8,8 @@
 -export([publish/3]).
 -export([publish/4]).
 
+-export([subscribers/1]).
+
 -include("logger.hrl").
 -include("common.hrl").
 
@@ -68,6 +70,10 @@ publish(Topic, Event, Exclude, Eligible) ->
     Subs1 = dict:to_list(pick_subs(Subs, Exclude, Eligible)),
     send(Topic, Event, Subs1),
     ok.
+
+subscribers(Topic) ->
+    Subs = lookup(?BY_TOPIC, ?md5(Topic), dict:new()),
+    dict:to_list(Subs).
 
 %% ===================================================================
 %% Private
