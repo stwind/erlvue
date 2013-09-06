@@ -60,8 +60,8 @@ handle_wamp_pub({default, Topic, Event, Opts}, _,
     erlvue_pubsub:publish(Topic, Event, Exclude, ?kf(eligible, Opts)),
     {ok, State}.
 
-terminate(Client, State) ->
-    ok = erlvue_pubsub:unsubscribe(Client),
+terminate(_, #state{session = Pid} = State) ->
+    ok = erlvue_pubsub:unsubscribe(Pid),
     {ok, State}.
 
 %% ===================================================================
