@@ -23,8 +23,11 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    Children = [worker_sup()],
+    Children = [worker_sup(),session_sup()],
     {ok, { {one_for_one, 5, 10}, Children} }.
 
 worker_sup() ->
     ?CHILD(erlvue_worker_sup, supervisor).
+
+session_sup() ->
+    ?CHILD(erlvue_session_sup, supervisor).

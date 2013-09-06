@@ -14,7 +14,8 @@
 start(_StartType, _StartArgs) ->
     {ok, Sup} = erlvue_sup:start_link(),
     setup_cowboy(),
-    erlvue_pubsub:init(),
+    erlvue_pubsub:setup(),
+    erlvue_session:setup(),
     {ok, Sup}.
 
 stop(_State) ->
@@ -52,8 +53,7 @@ proto_opts() ->
 trans_opts() ->
     {ok, Ip} = inet_parse:address(get_env(ip, "0.0.0.0")),
     Opts = [
-        {port, get_env(port, 9081)},
-        {ip, Ip}, 
+        {port, get_env(port, 9081)}, {ip, Ip}, 
         {max_connections, get_env(max_connections, 1024)}, 
         {backlog, get_env(backlog, 1024)}
     ],
@@ -77,8 +77,9 @@ trans_opts() ->
 dispatch() ->
     DispatchFile = get_env(dispatch_file, "priv/dispatch.script"),
     {ok, Dispatch} = file:script(DispatchFile, bs()),
-    SockjsOpts = [{logger, fun(_,R,_) -> R end}],
-    Wamp = wamp:init_sockjs_state(<<"/wamp">>, erlvue_wamp, [], SockjsOpts),
+    SockjsOpts = [{logger, fun(_,R,_) -> R end}], %% TODO: use a logger
+    Wamp = wamp:init_sockjs_state(<<"/wamp">>, erlvue_wamp, [], 
+        wamp_uri_map(), SockjsOpts),
     WampRoute = {<<"/wamp/[...]">>, sockjs_cowboy_handler, Wamp},
     Routes = erlvue_util:kf('_', Dispatch),
     Dispatch1 = lists:keyreplace('_', 1, Dispatch, {'_', [WampRoute | Routes]}),
@@ -86,3 +87,8 @@ dispatch() ->
 
 bs() ->
     erl_eval:new_bindings().
+
+wamp_uri_map() ->
+    UriFile = get_env(wamp_uri_file, "priv/wamp_uri.script"),
+    {ok, UriMap} = file:script(UriFile, bs()),
+    UriMap.

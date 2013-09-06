@@ -1,0 +1,7 @@
+%% -*- mode: erlang -*-
+%% ex: ft=erlang ts=2 sw=2 et
+
+[
+  {"/nodes", nodes},
+  {"/procs/:node", procs}
+].
