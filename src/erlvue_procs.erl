@@ -71,23 +71,20 @@ handle_call(_Request, _From, State) ->
 handle_cast(stop, State) ->
     {stop, normal, State};
 
-handle_cast({add, P}, State) ->
-    {noreply, notify(add_proc(P, State))};
+%handle_cast({add, P}, State) ->
+    %{noreply, notify(<<"add">>, add_proc(P, State))};
 
-handle_cast({remove, P}, State) ->
-    {noreply, notify(remove_proc(P, State))};
+%handle_cast({remove, P}, State) ->
+    %{noreply, notify(<<"remove">>, remove_proc(P, State))};
 
-handle_cast(refresh, State) ->
-    {noreply, notify(refresh_procs(State))};
-
-handle_cast(clear, State) ->
-    {noreply, notify(clean_procs(State))};
+%handle_cast(refresh, State) ->
+    %{noreply, notify(<<"reset">>, collect_all(State))};
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
 handle_info(refresh, State) ->
-    {noreply, notify(collect_all(State))};
+    {noreply, notify(<<"reset">>, collect_all(State))};
 
 handle_info(_Info, State) ->
     {noreply, State}.
@@ -139,22 +136,19 @@ add_proc(P, #state{infos = Infos} = State) ->
     end,
     State#state{infos = Infos1}.
 
-remove_proc(P, #state{infos = Infos} = State) ->
-    State#state{infos = [I || I <- Infos, get_pid(I) /= P]}.
+%remove_proc(P, #state{infos = Infos} = State) ->
+    %State#state{infos = [I || I <- Infos, get_pid(I) /= P]}.
 
-refresh_procs(#state{infos = Infos} = State) ->
-    State#state{infos = [collect_info(get_pid(I)) || I <- Infos]}.
+%clean_procs(State) ->
+    %State#state{infos = []}.
 
-clean_procs(State) ->
-    State#state{infos = []}.
-
-notify(#state{node = Node, infos = Infos} = State) ->
-    erlvue_pubsub:publish(erlvue_topic:procs(Node), Infos),
+notify(Type, #state{node = Node, infos = Infos} = State) ->
+    erlvue_pubsub:publish(erlvue_topic:procs(Node, Type), Infos),
     State.
 
 child_spec(Node) ->
     {?to_a(?to_l(?MODULE) ++ "_" ++ ?to_l(Node)), {?MODULE, start_link, [Node]}, 
         permanent, 5000, worker, [?MODULE]}.
 
-get_pid({Info}) ->
-    list_to_pid(?to_l(?kf(pid, Info))).
+%get_pid({Info}) ->
+    %list_to_pid(?to_l(?kf(pid, Info))).

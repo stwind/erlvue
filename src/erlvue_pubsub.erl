@@ -1,6 +1,6 @@
 -module(erlvue_pubsub).
 
--export([init/0]).
+-export([setup/0]).
 -export([subscribe/2]).
 -export([unsubscribe/1]).
 -export([unsubscribe/2]).
@@ -20,43 +20,42 @@
 %% Public
 %% ===================================================================
 
-init() ->
+setup() ->
     ets:new(?BY_TOPIC, [named_table, public]),
     ets:new(?BY_ID, [named_table, public]).
 
-subscribe(Topic, {Id, Conn}) ->
-    ?debug("~p sub: ~p", [Id, Topic]),
+subscribe(Topic, Pid) ->
+    ?debug("~p sub: ~p", [Pid, Topic]),
     Topic1 = ?md5(Topic),
-    ets:insert(?BY_TOPIC, {Topic1, dict:store(Id, Conn, 
-                lookup(?BY_TOPIC, Topic1, dict:new()))}),
-    ets:insert(?BY_ID, {Id, [Topic | lookup(?BY_ID, Id, [])]}),
+    ets:insert(?BY_TOPIC, {Topic1, 
+            lists:usort([Pid | lookup(?BY_TOPIC, Topic1, [])])}),
+    ets:insert(?BY_ID, {Pid, [Topic | lookup(?BY_ID, Pid, [])]}),
     ok.
 
-unsubscribe({Id, _}, Topic) ->
-    ?debug("~p unsub: ~p", [Id, Topic]),
+unsubscribe(Pid, Topic) ->
+    ?debug("~p unsub: ~p", [Pid, Topic]),
     Topic1 = ?md5(Topic),
     case ets:lookup(?BY_TOPIC, Topic1) of
         [{Topic1, Subs}] ->
-            Subs1 = dict:erase(Id, Subs),
-            case dict:size(Subs1) of
-                0 -> ets:delete(?BY_TOPIC, Topic1);
-                _ -> ets:insert(?BY_TOPIC, {Topic1, Subs1})
+            case lists:delete(Pid, Subs) of
+                [] -> ets:delete(?BY_TOPIC, Topic1);
+                Subs1 -> ets:insert(?BY_TOPIC, {Topic1, Subs1})
             end;
         [] ->
             nop
     end,
-    case ets:lookup(?BY_ID, Id) of
-        [{Id, [Topic]}] ->
-            ets:delete(?BY_ID, Id);
-        [{Id, Topics}] ->
-            ets:insert(?BY_ID, {Id, lists:delete(Topic, Topics)});
+    case ets:lookup(?BY_ID, Pid) of
+        [{Pid, [Topic]}] ->
+            ets:delete(?BY_ID, Pid);
+        [{Pid, Topics}] ->
+            ets:insert(?BY_ID, {Pid, lists:delete(Topic, Topics)});
         [] ->
             nop
     end,
     ok.
 
-unsubscribe({Id, _} = Client) ->
-    [unsubscribe(Client, T) || T <- lookup(?BY_ID, Id, [])],
+unsubscribe(Pid) ->
+    [unsubscribe(Pid, T) || T <- lookup(?BY_ID, Pid, [])],
     ok.
 
 publish(Topic, Event) ->
@@ -66,14 +65,13 @@ publish(Topic, Event, Exclude) ->
     publish(Topic, Event, Exclude, []).
 
 publish(Topic, Event, Exclude, Eligible) ->
-    Subs = lookup(?BY_TOPIC, ?md5(Topic), dict:new()),
-    Subs1 = dict:to_list(pick_subs(Subs, Exclude, Eligible)),
+    Subs = lookup(?BY_TOPIC, ?md5(Topic), []),
+    Subs1 = pick_subs(Subs, Exclude) ++ Eligible,
     send(Topic, Event, Subs1),
     ok.
 
 subscribers(Topic) ->
-    Subs = lookup(?BY_TOPIC, ?md5(Topic), dict:new()),
-    dict:to_list(Subs).
+    lookup(?BY_TOPIC, ?md5(Topic), []).
 
 %% ===================================================================
 %% Private
@@ -86,13 +84,7 @@ lookup(Tab, Id, Default) ->
     end.
 
 send(Topic, Event, Subs) ->
-    [wamp:notify(C, Topic, Event) || {_, C} <- Subs].
+    [Pid ! {pubsub_event, Topic, Event} || Pid <- Subs].
 
-pick_subs(Subs, Exclude, Eligible) ->
-    dict:filter(fun(Id, _) -> 
-                not lists:member(Id, Exclude) andalso
-                case Eligible of
-                    [] -> true;
-                    _ -> lists:member(Id, Eligible)
-                end
-        end, Subs).
+pick_subs(Subs, Exclude) ->
+    [Pid || Pid <- Subs, not lists:member(Pid, Exclude)].

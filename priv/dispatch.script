@@ -1,23 +1,20 @@
 %% -*- mode: erlang -*-
 %% ex: ft=erlang ts=2 sw=2 et
 
+Mimetypes = [
+  {<<".css">>, [<<"text/css">>]},
+  {<<".js">>, [<<"application/javascript">>]},
+  {<<".html">>, [<<"text/html">>]},
+  {<<".txt">>, [<<"text/plain">>]}
+],
+WWW = {priv_dir, erlvue, [<<"www">>]},
+HttpOpts = [{directory, WWW}, {mimetypes, Mimetypes}],
+
 [
   {'_', [
       {"/ping/[...]", erlvue_cb_ping, []},
-      {"/", cowboy_static, [
-          {directory, {priv_dir, erlvue, [<<"www">>]}},
-          {file, <<"index.html">>},
-          {mimetypes, [{<<".html">>, [<<"text/html">>]}]}
-        ]},
-      {"/[...]", cowboy_static, 
-        [
-          {directory, {priv_dir, erlvue, [<<"www">>]}},
-          {mimetypes, [
-              {<<".css">>, [<<"text/css">>]},
-              {<<".js">>, [<<"application/javascript">>]},
-              {<<".html">>, [<<"text/html">>]},
-              {<<".txt">>, [<<"text/plain">>]}
-            ]}
-        ]}
+
+      {"/", cowboy_static, [{file, <<"index.html">>} | HttpOpts]},
+      {"/[...]", cowboy_static, HttpOpts}
     ]}
 ].

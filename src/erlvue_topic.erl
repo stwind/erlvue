@@ -1,6 +1,6 @@
 -module(erlvue_topic).
 
--export([procs/1]).
+-export([procs/2]).
 
 -include("common.hrl").
 
@@ -8,6 +8,13 @@
 %% Public
 %% ===================================================================
 
-procs(Node) ->
+procs(Node, Type) ->
     NodeBin = ?urlenc(?to_b(Node)),
-    <<"/procs/", NodeBin/binary>>.
+    type(<<"/procs/", NodeBin/binary>>, Type).
+
+%% ===================================================================
+%% Privte
+%% ===================================================================
+
+type(Topic, Type) ->
+    <<Topic/binary, "?type=", Type/binary>>.
