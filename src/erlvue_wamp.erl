@@ -33,11 +33,6 @@ handle_wamp_prefix({_Prefix, _Uri}, _Client, State) ->
 handle_wamp_call({nodes, _Env, [<<"read">>]}, _Client, State) ->
     {{ok, nodes_resp()}, State};
 
-%handle_wamp_call({procs, Uri, [<<"read">>]}, _, State) ->
-    %Node = ?to_a(wamp_uri:binding(node, Uri)),
-    %maybe_start_worker(Node),
-    %{{ok, <<>>}, State}.
-
 handle_wamp_call(_, _, State) ->
     {{ok, <<>>}, State}.
 
@@ -48,13 +43,6 @@ handle_wamp_sub({procs, Uri}, _, #state{session = Pid} = State) ->
     maybe_start_worker(Node),
     ok = erlvue_pubsub:subscribe(Topic, Pid),
     {ok, State};
-
-%handle_wamp_sub({procs, Env}, _, #state{session = Pid} = State) ->
-    %Node = ?to_a(?urldec(wamp_uri:binding(node, Env))),
-    %maybe_start_worker(Node),
-    %Topic = erlvue_topic:procs(Node),
-    %ok = erlvue_pubsub:subscribe(Topic, Pid),
-    %{ok, State};
 
 handle_wamp_sub(_, _, State) ->
     {ok, State}.

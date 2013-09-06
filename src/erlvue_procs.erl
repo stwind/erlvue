@@ -77,8 +77,8 @@ handle_cast(stop, State) ->
 %handle_cast({remove, P}, State) ->
     %{noreply, notify(<<"remove">>, remove_proc(P, State))};
 
-%handle_cast(refresh, State) ->
-    %{noreply, notify(<<"reset">>, collect_all(State))};
+handle_cast(refresh, State) ->
+    {noreply, notify(<<"reset">>, collect_all(State))};
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
