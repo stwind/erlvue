@@ -11,6 +11,7 @@
 -export([refresh/0]).
 -export([clear/0]).
 -export([procs/0]).
+-export([dummy/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -54,6 +55,9 @@ clear() ->
 procs() ->
     gen_server:call(?MODULE, procs).
 
+dummy() ->
+    gen_server:cast(?MODULE, dummy).
+
 %% ===================================================================
 %% gen_server
 %% ===================================================================
@@ -63,7 +67,7 @@ init([Node]) ->
     {ok, #state{ node = Node }}.
 
 handle_call(procs, _From, #state{infos = Infos} = State) ->
-    {reply, [?kf(pid,I) || {I} <- Infos], State};
+    {reply, [get_pid(I) || I <- Infos], State};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -71,14 +75,20 @@ handle_call(_Request, _From, State) ->
 handle_cast(stop, State) ->
     {stop, normal, State};
 
-%handle_cast({add, P}, State) ->
-    %{noreply, notify(<<"add">>, add_proc(P, State))};
+handle_cast({add, P}, State) ->
+    {noreply, add_proc(P, State)};
 
-%handle_cast({remove, P}, State) ->
-    %{noreply, notify(<<"remove">>, remove_proc(P, State))};
+handle_cast({remove, P}, State) ->
+    {noreply, remove_proc(P, State)};
 
 handle_cast(refresh, State) ->
-    {noreply, notify(<<"reset">>, collect_all(State))};
+    {noreply, refresh_procs(State)};
+
+handle_cast(clear, State) ->
+    {noreply, clear_procs(State)};
+
+handle_cast(dummy, State) ->
+    {noreply, dummy(State)};
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -129,18 +139,47 @@ init_call({proc_lib, init_p, _}, Pid) ->
 init_call(Initial, _Pid) ->
     Initial.
 
-add_proc(P, #state{infos = Infos} = State) ->
+add_proc(P, #state{infos = Infos, node = Node} = State) ->
     Infos1 = case collect_info(P) of
-        undefined -> Infos;
-        Info -> [Info | Infos]
+        undefined -> 
+            Infos;
+        Info -> 
+            erlvue_pubsub:publish(erlvue_topic:procs(Node, <<"add">>), Info),
+            [Info | Infos]
     end,
     State#state{infos = Infos1}.
 
-%remove_proc(P, #state{infos = Infos} = State) ->
-    %State#state{infos = [I || I <- Infos, get_pid(I) /= P]}.
+remove_proc(P, #state{infos = Infos, node = Node} = State) ->
+    Infos1 = case [I || I <- Infos, get_pid(I) == P] of
+        [] ->
+            Infos;
+        ToRemove ->
+            lists:foreach(fun(I) -> 
+                        erlvue_pubsub:publish(erlvue_topic:procs(Node, <<"remove">>), I)
+                end, ToRemove),
+            Infos -- ToRemove
+    end,
+    State#state{infos = Infos1}.
 
-%clean_procs(State) ->
-    %State#state{infos = []}.
+dummy(State) ->
+    notify(<<"reset">>, State#state{infos = [
+                erlvue_util:to_obj([
+                        {pid, list_to_pid("<0.101.0>")},
+                        {name, p1},{mem, 1234},{mq, 0},
+                        {reds, 190022}, {cf, none}
+                    ]),
+                erlvue_util:to_obj([
+                        {pid, list_to_pid("<0.102.0>")},
+                        {name, p4},{mem, 123214},{mq, 0},
+                        {reds, 234823}, {cf, none}
+                    ])
+            ]}).
+
+refresh_procs(#state{infos = Infos} = State) ->
+    notify(<<"reset">>, State#state{infos = [collect_info(get_pid(I)) || I <- Infos]}).
+
+clear_procs(State) ->
+    notify(<<"reset">>, State#state{infos = []}).
 
 notify(Type, #state{node = Node, infos = Infos} = State) ->
     erlvue_pubsub:publish(erlvue_topic:procs(Node, Type), Infos),
@@ -150,5 +189,5 @@ child_spec(Node) ->
     {?to_a(?to_l(?MODULE) ++ "_" ++ ?to_l(Node)), {?MODULE, start_link, [Node]}, 
         permanent, 5000, worker, [?MODULE]}.
 
-%get_pid({Info}) ->
-    %list_to_pid(?to_l(?kf(pid, Info))).
+get_pid({Info}) ->
+    list_to_pid(?to_l(?kf(pid, Info))).
