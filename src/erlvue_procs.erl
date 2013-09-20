@@ -11,6 +11,7 @@
 -export([refresh/0]).
 -export([clear/0]).
 -export([procs/0]).
+-export([dummy/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -54,6 +55,9 @@ clear() ->
 procs() ->
     gen_server:call(?MODULE, procs).
 
+dummy() ->
+    gen_server:cast(?MODULE, dummy).
+
 %% ===================================================================
 %% gen_server
 %% ===================================================================
@@ -82,6 +86,9 @@ handle_cast(refresh, State) ->
 
 handle_cast(clear, State) ->
     {noreply, clear_procs(State)};
+
+handle_cast(dummy, State) ->
+    {noreply, dummy(State)};
 
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -153,6 +160,20 @@ remove_proc(P, #state{infos = Infos, node = Node} = State) ->
             Infos -- ToRemove
     end,
     State#state{infos = Infos1}.
+
+dummy(State) ->
+    notify(<<"reset">>, State#state{infos = [
+                erlvue_util:to_obj([
+                        {pid, list_to_pid("<0.101.0>")},
+                        {name, p1},{mem, 1234},{mq, 0},
+                        {reds, 190022}, {cf, none}
+                    ]),
+                erlvue_util:to_obj([
+                        {pid, list_to_pid("<0.102.0>")},
+                        {name, p4},{mem, 123214},{mq, 0},
+                        {reds, 234823}, {cf, none}
+                    ])
+            ]}).
 
 refresh_procs(#state{infos = Infos} = State) ->
     notify(<<"reset">>, State#state{infos = [collect_info(get_pid(I)) || I <- Infos]}).
