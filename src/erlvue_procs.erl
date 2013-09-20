@@ -63,7 +63,7 @@ dummy() ->
 %% ===================================================================
 
 init([Node]) ->
-    %timer:send_interval(?INTERVAL, refresh),
+    timer:send_interval(?INTERVAL, refresh),
     {ok, #state{ node = Node }}.
 
 handle_call(procs, _From, #state{infos = Infos} = State) ->
