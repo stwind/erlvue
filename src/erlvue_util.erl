@@ -18,6 +18,7 @@
 -export([urlencode/1]).
 
 -export([take/2]).
+-export([fmt_mfa/1]).
 
 -define(IS_PRIMITIVE(V), 
     is_binary(V);
@@ -117,6 +118,10 @@ to_obj(Object) ->
 take(N, _) when N =< 0     -> [];
 take(_, [])                -> [];
 take(N, [X|Xs])            -> [X|take(N-1, Xs)].
+
+
+fmt_mfa({M,F,A}) ->
+    <<(to_b(M))/binary,":",(to_b(F))/binary,"/",(to_b(A))/binary>>.
 
 %% ===================================================================
 %% Private

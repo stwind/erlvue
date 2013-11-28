@@ -32,7 +32,7 @@
 %% ===================================================================
 
 start_link(Node) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [Node], []).
+    gen_server:start_link(?MODULE, [Node], []).
 
 start_it(Node) ->
     erlvue_worker_sup:start_child(child_spec(Node)).
@@ -63,7 +63,7 @@ dummy() ->
 %% ===================================================================
 
 init([Node]) ->
-    %timer:send_interval(?INTERVAL, refresh),
+    timer:send_interval(?INTERVAL, refresh),
     {ok, #state{ node = Node }}.
 
 handle_call(procs, _From, #state{infos = Infos} = State) ->
@@ -113,7 +113,7 @@ collect_all(State) ->
     lists:foldl(fun add_proc/2, State#state{infos = []}, 
         erlvue_util:take(20, processes())).
 
-collect_info(P) ->
+collect_info(P, Node) ->
     case process_info(P, fields()) of
         undefined ->
             undefined;
@@ -121,12 +121,12 @@ collect_info(P) ->
             {reductions,Reds},{current_function,Current},
             {message_queue_len,Qlen}] ->
             Name = case Reg of
-                [] -> init_call(Initial, P);
+                [] -> fmt_mfa(init_call(Initial, P));
                 _ -> Reg
             end,
             erlvue_util:to_obj([
                     {name, Name},{mem, Mem},{mq, Qlen},{pid, P},
-                    {reds, Reds},{cf, Current}
+                    {reds, Reds},{cf, fmt_mfa(Current)}, {node, ?to_b(Node)}
                 ])
     end.
 
@@ -140,7 +140,7 @@ init_call(Initial, _Pid) ->
     Initial.
 
 add_proc(P, #state{infos = Infos, node = Node} = State) ->
-    Infos1 = case collect_info(P) of
+    Infos1 = case collect_info(P, Node) of
         undefined -> 
             Infos;
         Info -> 
@@ -175,8 +175,8 @@ dummy(State) ->
                     ])
             ]}).
 
-refresh_procs(#state{infos = Infos} = State) ->
-    notify(<<"reset">>, State#state{infos = [collect_info(get_pid(I)) || I <- Infos]}).
+refresh_procs(#state{infos = Infos, node = Node} = State) ->
+    notify(<<"reset">>, State#state{infos = [collect_info(get_pid(I), Node) || I <- Infos]}).
 
 clear_procs(State) ->
     notify(<<"reset">>, State#state{infos = []}).
@@ -191,3 +191,6 @@ child_spec(Node) ->
 
 get_pid({Info}) ->
     list_to_pid(?to_l(?kf(pid, Info))).
+
+fmt_mfa(MFA) ->
+    erlvue_util:fmt_mfa(MFA).
