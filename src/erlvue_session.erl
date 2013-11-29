@@ -61,6 +61,11 @@ handle_call(_, _From, State) ->
 handle_cast(_, State) ->
     {noreply, State}.
 
+handle_info({pubsub_event, <<"/proc/",_/binary>> = Topic, Event}, #state{conn = Conn} = State) ->
+    ?debug("topic ~p",[Topic]),
+    wamp:notify(Conn, Topic, Event),
+    {noreply, State};
+
 handle_info({pubsub_event, Topic, Event}, #state{conn = Conn} = State) ->
     wamp:notify(Conn, Topic, Event),
     {noreply, State};

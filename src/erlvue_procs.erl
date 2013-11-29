@@ -132,7 +132,7 @@ collect_info(P, Node) ->
 
 fields() ->
     [registered_name, initial_call, memory,reductions, 
-        current_function, message_queue_len].
+     current_function, message_queue_len].
 
 init_call({proc_lib, init_p, _}, Pid) ->
     proc_lib:translate_initial_call(Pid);

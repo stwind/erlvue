@@ -61,7 +61,9 @@ to_l(Value) when is_atom(Value) ->
     atom_to_list(Value);
 to_l(Value) when is_float(Value) ->
     mochinum:digits(Value);
-to_l(Value) ->
+to_l(Value) when is_pid(Value) ->
+    pid_to_list(Value);
+to_l(Value) when is_list(Value) ->
     Value.
 
 %% @doc Convert values to atom

@@ -4,6 +4,7 @@
 -export([proc/2]).
 -export([stats/1]).
 
+-include("logger.hrl").
 -include("common.hrl").
 
 %% ===================================================================
