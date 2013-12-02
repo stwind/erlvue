@@ -18,6 +18,7 @@
 -export([urlencode/1]).
 
 -export([take/2]).
+-export([fmt_mfa/1]).
 
 -define(IS_PRIMITIVE(V), 
     is_binary(V);
@@ -60,7 +61,9 @@ to_l(Value) when is_atom(Value) ->
     atom_to_list(Value);
 to_l(Value) when is_float(Value) ->
     mochinum:digits(Value);
-to_l(Value) ->
+to_l(Value) when is_pid(Value) ->
+    pid_to_list(Value);
+to_l(Value) when is_list(Value) ->
     Value.
 
 %% @doc Convert values to atom
@@ -74,6 +77,8 @@ to_a(V) ->
 
 %% @doc Format value to string
 -spec to_str(term()) -> string().
+to_str(Term) when ?IS_PRIMITIVE(Term) ->
+    oneline(to_b(Term));
 to_str(Term) ->
     oneline(io_lib:format("~p",[Term])).
 
@@ -117,6 +122,10 @@ to_obj(Object) ->
 take(N, _) when N =< 0     -> [];
 take(_, [])                -> [];
 take(N, [X|Xs])            -> [X|take(N-1, Xs)].
+
+
+fmt_mfa({M,F,A}) ->
+    <<(to_b(M))/binary,":",(to_b(F))/binary,"/",(to_b(A))/binary>>.
 
 %% ===================================================================
 %% Private

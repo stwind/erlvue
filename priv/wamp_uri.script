@@ -3,5 +3,7 @@
 
 [
   {"/nodes", nodes},
-  {"/procs/:node", procs}
+  {"/procs/:node", procs},
+  {"/proc/:node/:pid", proc},
+  {"/stats/:node", stats}
 ].
