@@ -3,15 +3,10 @@
 -behaviour(gen_server).
 
 -export([start_link/1]).
--export([start_it/1]).
+-export([new/1]).
 -export([stop/1]).
 
--export([add/1]).
--export([remove/1]).
--export([refresh/0]).
--export([clear/0]).
--export([procs/0]).
--export([dummy/0]).
+-export([fetch/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -34,29 +29,14 @@
 start_link(Node) ->
     gen_server:start_link(?MODULE, [Node], []).
 
-start_it(Node) ->
+new(Node) ->
     erlvue_worker_sup:start_child(child_spec(Node)).
 
 stop(Pid) ->
     gen_server:cast(Pid, stop).
 
-add(P) ->
-    gen_server:cast(?MODULE, {add, P}).
-
-remove(P) ->
-    gen_server:cast(?MODULE, {remove, P}).
-
-refresh() ->
-    gen_server:cast(?MODULE, refresh).
-
-clear() ->
-    gen_server:cast(?MODULE, clear).
-
-procs() ->
-    gen_server:call(?MODULE, procs).
-
-dummy() ->
-    gen_server:cast(?MODULE, dummy).
+fetch(Srv) ->
+    gen_server:call(Srv, fetch).
 
 %% ===================================================================
 %% gen_server
@@ -64,10 +44,11 @@ dummy() ->
 
 init([Node]) ->
     timer:send_interval(?INTERVAL, refresh),
+    self() ! refresh,
     {ok, #state{ node = Node }}.
 
-handle_call(procs, _From, #state{infos = Infos} = State) ->
-    {reply, [get_pid(I) || I <- Infos], State};
+handle_call(fetch, _From, #state{infos = Infos} = State) ->
+    {reply, {ok, Infos}, State};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
@@ -82,7 +63,7 @@ handle_cast({remove, P}, State) ->
     {noreply, remove_proc(P, State)};
 
 handle_cast(refresh, State) ->
-    {noreply, refresh_procs(State)};
+    {noreply, notify(<<"reset">>, collect_all(State))};
 
 handle_cast(clear, State) ->
     {noreply, clear_procs(State)};
@@ -175,9 +156,6 @@ dummy(State) ->
                     ])
             ]}).
 
-refresh_procs(#state{infos = Infos, node = Node} = State) ->
-    notify(<<"reset">>, State#state{infos = [collect_info(get_pid(I), Node) || I <- Infos]}).
-
 clear_procs(State) ->
     notify(<<"reset">>, State#state{infos = []}).
 
@@ -186,8 +164,10 @@ notify(Type, #state{node = Node, infos = Infos} = State) ->
     State.
 
 child_spec(Node) ->
-    {?to_a(?to_l(?MODULE) ++ "_" ++ ?to_l(Node)), {?MODULE, start_link, [Node]}, 
-        permanent, 5000, worker, [?MODULE]}.
+    {id(Node), {?MODULE, start_link, [Node]}, permanent, 5000, worker, [?MODULE]}.
+
+id(Node) ->
+    ?to_a(?to_l(?MODULE) ++ "_" ++ ?to_l(Node)).
 
 get_pid({Info}) ->
     list_to_pid(?to_l(?kf(pid, Info))).

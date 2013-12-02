@@ -5,7 +5,7 @@
 -export([start_link/2]).
 -export([new/2]).
 -export([stop/1]).
--export([collect_info/2]).
+-export([fetch/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -35,13 +35,20 @@ new(Node, Pid) ->
 stop(Pid) ->
     gen_server:cast(Pid, stop).
 
+fetch(Pid) ->
+    gen_server:call(Pid, fetch).
+
 %% ===================================================================
 %% gen_server
 %% ===================================================================
 
 init([Node, Pid]) ->
     timer:send_interval(?INTERVAL, refresh),
+    self() ! refresh,
     {ok, #state{ node = Node, pid = Pid }}.
+
+handle_call(fetch, _From, #state{info = Info} = State) ->
+    {reply, {ok, Info}, State};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.

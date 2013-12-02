@@ -3,8 +3,9 @@
 -behaviour(gen_server).
 
 -export([start_link/1]).
--export([start_it/1]).
+-export([new/1]).
 -export([stop/1]).
+-export([fetch/1]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -30,11 +31,14 @@
 start_link(Node) ->
     gen_server:start_link(?MODULE, [Node], []).
 
-start_it(Node) ->
+new(Node) ->
     erlvue_worker_sup:start_child(child_spec(Node)).
 
 stop(Pid) ->
     gen_server:cast(Pid, stop).
+
+fetch(Server) ->
+    gen_server:call(Server, fetch).
 
 %% ===================================================================
 %% gen_server
@@ -42,7 +46,11 @@ stop(Pid) ->
 
 init([Node]) ->
     timer:send_interval(?INTERVAL, refresh),
+    self() ! refresh,
     {ok, #state{ node = Node }}.
+
+handle_call(fetch, _From, #state{stats = Stats} = State) ->
+    {reply, {ok, Stats}, State};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
