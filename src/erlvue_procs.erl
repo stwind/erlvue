@@ -68,9 +68,6 @@ handle_cast(refresh, State) ->
 handle_cast(clear, State) ->
     {noreply, clear_procs(State)};
 
-handle_cast(dummy, State) ->
-    {noreply, dummy(State)};
-
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -91,8 +88,12 @@ code_change(_OldVsn, State, _Extra) ->
 %% ===================================================================
 
 collect_all(State) ->
-    lists:foldl(fun add_proc/2, State#state{infos = []}, 
-        erlvue_util:take(20, processes())).
+    New = sets:from_list(procs()),
+    Old = sets:from_list(pids_of(State#state.infos)),
+    ToRemove = sets:subtract(Old, New),
+    ToAdd = sets:subtract(New, Old),
+    State1 = lists:foldl(fun remove_proc/2, State, sets:to_list(ToRemove)),
+    lists:foldl(fun add_proc/2, update_procs(State1), sets:to_list(ToAdd)).
 
 collect_info(P, Node) ->
     case process_info(P, fields()) of
@@ -122,39 +123,28 @@ init_call(Initial, _Pid) ->
 
 add_proc(P, #state{infos = Infos, node = Node} = State) ->
     Infos1 = case collect_info(P, Node) of
-        undefined -> 
-            Infos;
-        Info -> 
-            erlvue_pubsub:publish(erlvue_topic:procs(Node, <<"add">>), Info),
-            [Info | Infos]
-    end,
+                 undefined -> 
+                     Infos;
+                 Info -> 
+                     erlvue_pubsub:publish(erlvue_topic:procs(Node, <<"add">>), Info),
+                     [Info | Infos]
+             end,
     State#state{infos = Infos1}.
 
 remove_proc(P, #state{infos = Infos, node = Node} = State) ->
     Infos1 = case [I || I <- Infos, get_pid(I) == P] of
-        [] ->
-            Infos;
-        ToRemove ->
-            lists:foreach(fun(I) -> 
-                        erlvue_pubsub:publish(erlvue_topic:procs(Node, <<"remove">>), I)
-                end, ToRemove),
-            Infos -- ToRemove
-    end,
+                 [] ->
+                     Infos;
+                 ToRemove ->
+                     Topic = erlvue_topic:procs(Node, <<"remove">>),
+                     [erlvue_pubsub:publish(Topic, I) || I <- ToRemove],
+                     Infos -- ToRemove
+             end,
     State#state{infos = Infos1}.
 
-dummy(State) ->
-    notify(<<"reset">>, State#state{infos = [
-                erlvue_util:to_obj([
-                        {pid, list_to_pid("<0.101.0>")},
-                        {name, p1},{mem, 1234},{mq, 0},
-                        {reds, 190022}, {cf, none}
-                    ]),
-                erlvue_util:to_obj([
-                        {pid, list_to_pid("<0.102.0>")},
-                        {name, p4},{mem, 123214},{mq, 0},
-                        {reds, 234823}, {cf, none}
-                    ])
-            ]}).
+update_procs(#state{infos = Infos, node = Node} = State) ->
+    Infos1 = [collect_info(get_pid(I), Node) || I <- Infos],
+    State#state{infos = Infos1}.
 
 clear_procs(State) ->
     notify(<<"reset">>, State#state{infos = []}).
@@ -172,5 +162,11 @@ id(Node) ->
 get_pid({Info}) ->
     list_to_pid(?to_l(?kf(pid, Info))).
 
+pids_of(Infos) ->
+    [get_pid(Info) || Info <- Infos].
+
 fmt_mfa(MFA) ->
     erlvue_util:fmt_mfa(MFA).
+
+procs() ->
+    erlvue_util:take(20, processes()).

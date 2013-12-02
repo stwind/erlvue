@@ -76,8 +76,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% ===================================================================
 
 child_spec(Node, Pid) ->
-    PidStr = pid_str(Pid),
-    {?to_a(?to_l(?MODULE) ++ "_" ++ ?to_l(Node) ++ "_" ++ PidStr), 
+    {?to_a(?to_l(?MODULE) ++ "_" ++ ?to_l(Node) ++ "_" ++ pid_str(Pid)), 
      {?MODULE, start_link, [Node, Pid]}, permanent, 5000, worker, [?MODULE]}.
 
 pid_str(Pid) ->

@@ -77,6 +77,8 @@ to_a(V) ->
 
 %% @doc Format value to string
 -spec to_str(term()) -> string().
+to_str(Term) when ?IS_PRIMITIVE(Term) ->
+    oneline(to_b(Term));
 to_str(Term) ->
     oneline(io_lib:format("~p",[Term])).
 
